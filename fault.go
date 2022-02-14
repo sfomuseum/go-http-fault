@@ -77,6 +77,8 @@ func faultHandler(wr io.Writer, t *template.Template) (http.Handler, error) {
 
 		if t != nil {
 
+			rsp.Header().Set("Content-Type", "text/html")
+			
 			vars := FaultHandlerVars{
 				Status: status,
 				Error:  err,
