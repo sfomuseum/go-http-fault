@@ -13,11 +13,15 @@ import (
 const ErrorKey string = "github.com/sfomuseum/go-http-fault#error"
 const StatusKey string = "github.com/sfomuseum/go-http-fault#status"
 
+// type FaultHandlerVars is a containing template variables for the fault handler.
 type FaultHandlerVars struct {
+	// The HTTP status code associated with the error.
 	Status int
-	Error  error
+	// The `error` instance that triggered the use of the fault handler.
+	Error error
 }
 
+// AssignError assigns 'err' and 'status' to the `context.Context` instance associated with 'req'.
 func AssignError(req *http.Request, err error, status int) *http.Request {
 
 	ctx := req.Context()
@@ -26,6 +30,9 @@ func AssignError(req *http.Request, err error, status int) *http.Request {
 	return req.WithContext(ctx)
 }
 
+// RetrieveError returns the HTTP status code and associated `error` instance that were assigned to the `context.Context` instance associated with 'req'.
+// If no HTTP status code has been assigned then the `http.StatusInternalServerError` code is returned.
+// If no `error` instance has been assigned then a placeholder error is returned.
 func RetrieveError(req *http.Request) (int, error) {
 
 	ctx := req.Context()
@@ -78,7 +85,7 @@ func faultHandler(wr io.Writer, t *template.Template) (http.Handler, error) {
 		if t != nil {
 
 			rsp.Header().Set("Content-Type", "text/html")
-			
+
 			vars := FaultHandlerVars{
 				Status: status,
 				Error:  err,
