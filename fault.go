@@ -13,15 +13,11 @@ import (
 const ErrorKey string = "github.com/sfomuseum/go-http-fault#error"
 const StatusKey string = "github.com/sfomuseum/go-http-fault#status"
 
-// type FaultHandlerVars is a containing template variables for the fault handler.
 type FaultHandlerVars struct {
-	// The HTTP status code associated with the error.
 	Status int
-	// The `error` instance that triggered the use of the fault handler.
-	Error error
+	Error  error
 }
 
-// AssignError assigns 'err' and 'status' to the `context.Context` instance associated with 'req'.
 func AssignError(req *http.Request, err error, status int) *http.Request {
 
 	ctx := req.Context()
@@ -30,9 +26,6 @@ func AssignError(req *http.Request, err error, status int) *http.Request {
 	return req.WithContext(ctx)
 }
 
-// RetrieveError returns the HTTP status code and associated `error` instance that were assigned to the `context.Context` instance associated with 'req'.
-// If no HTTP status code has been assigned then the `http.StatusInternalServerError` code is returned.
-// If no `error` instance has been assigned then a placeholder error is returned.
 func RetrieveError(req *http.Request) (int, error) {
 
 	ctx := req.Context()
@@ -76,11 +69,20 @@ func faultHandler(wr io.Writer, t *template.Template) (http.Handler, error) {
 	fn := func(rsp http.ResponseWriter, req *http.Request) {
 
 		status, err := RetrieveError(req)
-		msg := err.Error()
+
+		var fault_err FaultError
+
+		public_err := err
+		private_err := err
+
+		if errors.As(err, &fault_err) {
+			public_err = fault_err.Public()
+			private_err = fault_err.Private()
+		}
 
 		addr := req.RemoteAddr
 
-		l.Printf("[FAULT] %s \"%s %s %s\" %s\n", addr, req.Method, req.RequestURI, req.Proto, msg)
+		l.Printf("[FAULT] %s \"%s %s %s\" %v\n", addr, req.Method, req.RequestURI, req.Proto, private_err)
 
 		if t != nil {
 
@@ -88,7 +90,7 @@ func faultHandler(wr io.Writer, t *template.Template) (http.Handler, error) {
 
 			vars := FaultHandlerVars{
 				Status: status,
-				Error:  err,
+				Error:  public_err,
 			}
 
 			err = t.Execute(rsp, vars)

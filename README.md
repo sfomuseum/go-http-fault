@@ -4,7 +4,6 @@ Go package providing a `net/http` handler for logging errors and rendering them 
 
 ## Documentation
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/sfomuseum/go-http-fault.svg)](https://pkg.go.dev/github.com/sfomuseum/go-http-fault)
+
 Documentation is incomplete at this time.
-
-## See also
-
