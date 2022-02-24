@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"net/http"
 )
@@ -51,20 +50,15 @@ func RetrieveError(req *http.Request) (int, error) {
 	return status, err
 }
 
-func FaultHandler(wr io.Writer) (http.Handler, error) {
-	return faultHandler(wr, nil)
+func FaultHandler(l *log.Logger) (http.Handler, error) {
+	return faultHandler(l, nil)
 }
 
-func TemplatedFaultHandler(wr io.Writer, t *template.Template) (http.Handler, error) {
-	return faultHandler(wr, t)
+func TemplatedFaultHandler(l *log.Logger, t *template.Template) (http.Handler, error) {
+	return faultHandler(l, t)
 }
 
-func faultHandler(wr io.Writer, t *template.Template) (http.Handler, error) {
-
-	prefix := ""
-	flags := log.LstdFlags
-
-	l := log.New(wr, prefix, flags)
+func faultHandler(l *log.Logger, t *template.Template) (http.Handler, error) {
 
 	fn := func(rsp http.ResponseWriter, req *http.Request) {
 
