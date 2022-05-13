@@ -9,7 +9,10 @@ import (
 	"net/http"
 )
 
+// ErrorKey is the name of the key for assigning `error` values to a `context.Context` instance.
 const ErrorKey string = "github.com/sfomuseum/go-http-fault#error"
+
+// StatusKey is the name of the key for assigning status code values to a `context.Context` instance.
 const StatusKey string = "github.com/sfomuseum/go-http-fault#status"
 
 type FaultHandlerVars struct {
@@ -17,6 +20,8 @@ type FaultHandlerVars struct {
 	Error  error
 }
 
+// AssignError assigns 'err' and 'status' the `ErrorKey` and `StatusKey` values of 'req.Context'
+// and returns an updated instance of 'req'
 func AssignError(req *http.Request, err error, status int) *http.Request {
 
 	ctx := req.Context()
@@ -25,6 +30,7 @@ func AssignError(req *http.Request, err error, status int) *http.Request {
 	return req.WithContext(ctx)
 }
 
+// RetrieveError returns the values of the `StatusKey` and `ErrorKey` values of 'req.Context'
 func RetrieveError(req *http.Request) (int, error) {
 
 	ctx := req.Context()
@@ -50,14 +56,20 @@ func RetrieveError(req *http.Request) (int, error) {
 	return status, err
 }
 
+// FaultHandler returns a `http.Handler` instance for handling errors in a web application.
 func FaultHandler(l *log.Logger) (http.Handler, error) {
 	return faultHandler(l, nil)
 }
 
+// TemplatedFaultHandler returns a `http.Handler` instance for handling errors in a web application
+// with a custom HTML template.
 func TemplatedFaultHandler(l *log.Logger, t *template.Template) (http.Handler, error) {
 	return faultHandler(l, t)
 }
 
+// faultHandler returns a `http.Handler` for handling errors in a web application. It will retrieve
+// and "public" and "private" errors that have been recorded and log them to 'l'. If 't is defined it
+// will executed and passed the "public" error as a template variable.
 func faultHandler(l *log.Logger, t *template.Template) (http.Handler, error) {
 
 	fn := func(rsp http.ResponseWriter, req *http.Request) {

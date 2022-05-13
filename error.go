@@ -1,5 +1,7 @@
 package fault
 
+// See also: https://github.com/natefinch/wrap
+
 // FaultError is an interface for providing custom public and private error messages.
 type FaultError interface {
 	error
