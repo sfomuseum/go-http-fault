@@ -9,6 +9,27 @@ import (
 	"net/http"
 )
 
+type FaultWrapper struct {
+	logger   *log.Logger
+	template *template.Template
+}
+
+func NewFaultWrapper(logger *log.Logger, template *template.Template) *FaultWrapper {
+
+	fw := &FaultWrapper{
+		template: template,
+		logger:   logger,
+	}
+
+	return fw
+}
+
+func (fw *FaultWrapper) HandleWithMux(mux *http.ServeMux, uri string, h http.Handler) {
+
+	wr := TemplatedFaultHandlerWrapper(fw.logger, fw.template, h)
+	mux.Handle(uri, wr)
+}
+
 // ErrorKey is the name of the key for assigning `error` values to a `context.Context` instance.
 const ErrorKey string = "github.com/sfomuseum/go-http-fault#error"
 
@@ -21,13 +42,15 @@ type FaultHandlerVars struct {
 }
 
 // AssignError assigns 'err' and 'status' the `ErrorKey` and `StatusKey` values of 'req.Context'
-// and returns an updated instance of 'req'
-func AssignError(req *http.Request, err error, status int) *http.Request {
+// and updates 'req' in place.
+func AssignError(req *http.Request, err error, status int) {
 
 	ctx := req.Context()
 	ctx = context.WithValue(ctx, ErrorKey, err)
 	ctx = context.WithValue(ctx, StatusKey, status)
-	return req.WithContext(ctx)
+
+	new_req := req.WithContext(ctx)
+	*req = *new_req
 }
 
 // RetrieveError returns the values of the `StatusKey` and `ErrorKey` values of 'req.Context'
