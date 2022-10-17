@@ -9,27 +9,6 @@ import (
 	"net/http"
 )
 
-type FaultWrapper struct {
-	logger   *log.Logger
-	template *template.Template
-}
-
-func NewFaultWrapper(logger *log.Logger, template *template.Template) *FaultWrapper {
-
-	fw := &FaultWrapper{
-		template: template,
-		logger:   logger,
-	}
-
-	return fw
-}
-
-func (fw *FaultWrapper) HandleWithMux(mux *http.ServeMux, uri string, h http.Handler) {
-
-	wr := TemplatedFaultHandlerWrapper(fw.logger, fw.template, h)
-	mux.Handle(uri, wr)
-}
-
 // ErrorKey is the name of the key for assigning `error` values to a `context.Context` instance.
 const ErrorKey string = "github.com/sfomuseum/go-http-fault#error"
 
@@ -88,27 +67,6 @@ func FaultHandler(l *log.Logger) http.Handler {
 // with a custom HTML template.
 func TemplatedFaultHandler(l *log.Logger, t *template.Template) http.Handler {
 	return faultHandler(l, t)
-}
-
-func TemplatedFaultHandlerWrapper(l *log.Logger, t *template.Template, next http.Handler) http.Handler {
-
-	fh := faultHandler(l, t)
-
-	fn := func(rsp http.ResponseWriter, req *http.Request) {
-
-		sw := NewStatusWriter(rsp)
-		next.ServeHTTP(sw, req)
-
-		if sw.Status < http.StatusBadRequest {
-			return
-		}
-
-		fh.ServeHTTP(rsp, req)
-		return
-	}
-
-	h := http.HandlerFunc(fn)
-	return h
 }
 
 // faultHandler returns a `http.Handler` for handling errors in a web application. It will retrieve
