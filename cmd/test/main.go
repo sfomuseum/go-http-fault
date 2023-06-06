@@ -10,9 +10,17 @@ import (
 	"github.com/sfomuseum/go-http-fault/v2"
 )
 
+type Bar struct {
+	Hello string
+	Status int
+	Error error
+}
+	
 type Foo struct {
 	Hello string
 }
+
+// https://groups.google.com/g/golang-nuts/c/dV7Yw78wWzU
 
 func Merge(a interface{}, b interface{})( d interface{}) {
 	aType := reflect.TypeOf(a)
