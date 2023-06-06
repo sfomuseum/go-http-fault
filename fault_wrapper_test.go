@@ -1,12 +1,38 @@
 package fault
 
 import (
+	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"testing"
 )
+
+func okHandler() http.Handler {
+
+	fn := func(rsp http.ResponseWriter, req *http.Request) {
+		return
+	}
+
+	return http.HandlerFunc(fn)
+}
+
+func errorHandler() http.Handler {
+
+	fn := func(rsp http.ResponseWriter, req *http.Request) {
+
+		err := fmt.Errorf("SAD FACE")
+		code := 999
+
+		AssignError(req, err, code)
+		rsp.WriteHeader(http.StatusBadRequest)
+
+		return
+	}
+
+	return http.HandlerFunc(fn)
+}
 
 func TestFaultHandlerWrapper(t *testing.T) {
 
@@ -28,14 +54,17 @@ func TestFaultHandlerWrapper(t *testing.T) {
 	fw.HandleWithMux(mux, "/ok", ok_h)
 	fw.HandleWithMux(mux, "/err", err_h)
 
+	s := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
 	go func() {
 
-		err := http.ListenAndServe("localhost:8080", mux)
-
-		if err != nil {
-			t.Fatalf("Failed to serve requests, %v", err)
-		}
+		s.ListenAndServe()
 	}()
+
+	defer s.Close()
 
 	req, err := http.Get("http://localhost:8080/ok")
 
@@ -62,5 +91,4 @@ func TestFaultHandlerWrapper(t *testing.T) {
 	if string(body) != "999 SAD FACE" {
 		t.Fatalf("Unexpected response, '%s'", string(body))
 	}
-
 }

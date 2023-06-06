@@ -57,7 +57,7 @@ func ImplementsFaultHandlerVars(vars interface{}) bool {
 }
 
 func defaultFaultHandlerVars() interface{} {
-	return FaultHandlerVars{
+	return &FaultHandlerVars{
 		Status: 0,
 		Error:  fmt.Errorf("Undefined error"),
 	}
@@ -139,8 +139,6 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 
 		public_err := err
 		private_err := err
-
-		log.Println(public_err)
 
 		if errors.As(err, &fault_err) {
 			public_err = fault_err.Public()

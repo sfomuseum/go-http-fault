@@ -9,31 +9,6 @@ import (
 	"testing"
 )
 
-func okHandler() http.Handler {
-
-	fn := func(rsp http.ResponseWriter, req *http.Request) {
-		return
-	}
-
-	return http.HandlerFunc(fn)
-}
-
-func errorHandler() http.Handler {
-
-	fn := func(rsp http.ResponseWriter, req *http.Request) {
-
-		err := fmt.Errorf("SAD FACE")
-		code := 999
-
-		AssignError(req, err, code)
-		rsp.WriteHeader(http.StatusBadRequest)
-
-		return
-	}
-
-	return http.HandlerFunc(fn)
-}
-
 func TestAssignError(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/", nil)
@@ -144,9 +119,15 @@ func TestFaultHandlerWithCustomVars(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.Handle("/", h)
 
-	go func() {
+	s := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
 
-		http.ListenAndServe(":8080", mux)
+	defer s.Close()
+
+	go func() {
+		s.ListenAndServe()
 	}()
 
 	rsp, err := http.Get("http://localhost:8080")
@@ -169,4 +150,5 @@ func TestFaultHandlerWithCustomVars(t *testing.T) {
 	if str_body != expected_body {
 		t.Fatalf("Unexpected output '%s' (got '%s')", str_body, expected_body)
 	}
+
 }
