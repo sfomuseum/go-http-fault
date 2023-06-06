@@ -55,6 +55,48 @@ func TestAssignError(t *testing.T) {
 	}
 }
 
+func TestFaultHandlerVarsFunc(t *testing.T) {
+
+	type ValidCustomVars struct {
+		Custom string
+		FaultHandlerVars					
+	}
+
+	type InvalidCustomVars struct {
+		Custom string
+	}
+	
+	valid_func := func() ValidCustomVars {
+
+		vars := ValidCustomVars{
+			Custom: "custom",
+		}
+
+		return vars
+	}
+
+	invalid_func := func() InvalidCustomVars {
+
+		vars := InvalidCustomVars{
+			Custom: "custom",
+		}
+
+		return vars
+	}
+	
+	valid_vars := valid_func()
+
+	if !ImplementsFaultHandlerVars(valid_vars){
+		t.Fatalf("%T does not implement fault handler vars", valid_vars)
+	}
+
+	invalid_vars := invalid_func()
+
+	if ImplementsFaultHandlerVars(invalid_vars){
+		t.Fatalf("%T implements fault handler vars, which is not expected", invalid_vars)
+	}
+}
+
 func TestFaultHandler(t *testing.T) {
 	t.Skip()
 }

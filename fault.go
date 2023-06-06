@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"reflect"
 )
 
 // ErrorKey is the name of the key for assigning `error` values to a `context.Context` instance.
@@ -26,9 +27,36 @@ type FaultHandlerVars struct {
 	Error  error
 }
 
-type FaultHandlerVarsFunc func() *FaultHandlerVars
+func (v *FaultHandlerVars) setStatus(status int) {
+	v.Status = status
+}
 
-func defaultFaultHandlerVars() *FaultHandlerVars {
+func (v *FaultHandlerVars) setError(e error) {
+	v.Error = e
+}
+
+type FaultHandlerVarsFunc func() interface{}
+
+func ImplementsFaultHandlerVars(vars interface{}) bool {
+
+	val := reflect.ValueOf(vars)
+
+	s := val.FieldByName("Status")
+	
+	if s.Kind() == reflect.Invalid {
+		return false
+	}
+
+	e := val.FieldByName("Error")
+	
+	if e.Kind() == reflect.Invalid {
+		return false
+	}
+
+	return true
+}
+
+func defaultFaultHandlerVars() interface{} {
 	return &FaultHandlerVars{
 		Status: 0,
 		Error:  fmt.Errorf("Undefined error"),
@@ -112,6 +140,8 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 		public_err := err
 		private_err := err
 
+		log.Println(public_err)
+		
 		if errors.As(err, &fault_err) {
 			public_err = fault_err.Public()
 			private_err = fault_err.Private()
@@ -126,8 +156,21 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 			rsp.Header().Set("Content-Type", "text/html")
 
 			vars := opts.VarsFunc()
+
+			if !ImplementsFaultHandlerVars(vars){
+				return
+			}
+
+			/*
+			val := reflect.ValueOf(vars)
+
+			reflect.ValueOf(val).Elem().FieldByName("Status").SetInt(int64(status))
+			reflect.ValueOf(val).Elem().FieldByName("Error").Set(public_err)
+			*/
+
+			
 			vars.Status = status
-			vars.Error = public_err
+			// vars.Error = public_err
 
 			err = opts.Template.Execute(rsp, vars)
 
