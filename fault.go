@@ -27,14 +27,6 @@ type FaultHandlerVars struct {
 	Error  error
 }
 
-func (v *FaultHandlerVars) setStatus(status int) {
-	v.Status = status
-}
-
-func (v *FaultHandlerVars) setError(e error) {
-	v.Error = e
-}
-
 type FaultHandlerVarsFunc func() interface{}
 
 func ImplementsFaultHandlerVars(vars interface{}) bool {
@@ -42,13 +34,13 @@ func ImplementsFaultHandlerVars(vars interface{}) bool {
 	val := reflect.ValueOf(vars)
 
 	s := val.FieldByName("Status")
-	
+
 	if s.Kind() == reflect.Invalid {
 		return false
 	}
 
 	e := val.FieldByName("Error")
-	
+
 	if e.Kind() == reflect.Invalid {
 		return false
 	}
@@ -57,7 +49,7 @@ func ImplementsFaultHandlerVars(vars interface{}) bool {
 }
 
 func defaultFaultHandlerVars() interface{} {
-	return &FaultHandlerVars{
+	return FaultHandlerVars{
 		Status: 0,
 		Error:  fmt.Errorf("Undefined error"),
 	}
@@ -141,7 +133,7 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 		private_err := err
 
 		log.Println(public_err)
-		
+
 		if errors.As(err, &fault_err) {
 			public_err = fault_err.Public()
 			private_err = fault_err.Private()
@@ -157,20 +149,15 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 
 			vars := opts.VarsFunc()
 
-			if !ImplementsFaultHandlerVars(vars){
+			if !ImplementsFaultHandlerVars(vars) {
 				return
 			}
 
-			/*
-			val := reflect.ValueOf(vars)
+			f := vars.(FaultHandlerVars)
+			f.Status = status
+			f.Error = public_err
 
-			reflect.ValueOf(val).Elem().FieldByName("Status").SetInt(int64(status))
-			reflect.ValueOf(val).Elem().FieldByName("Error").Set(public_err)
-			*/
-
-			
-			vars.Status = status
-			// vars.Error = public_err
+			vars = f
 
 			err = opts.Template.Execute(rsp, vars)
 

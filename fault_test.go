@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"io"
+	"html/template"
+	"log"
 )
 
 func okHandler() http.Handler {
@@ -59,13 +62,13 @@ func TestFaultHandlerVarsFunc(t *testing.T) {
 
 	type ValidCustomVars struct {
 		Custom string
-		FaultHandlerVars					
+		FaultHandlerVars
 	}
 
 	type InvalidCustomVars struct {
 		Custom string
 	}
-	
+
 	valid_func := func() ValidCustomVars {
 
 		vars := ValidCustomVars{
@@ -83,20 +86,83 @@ func TestFaultHandlerVarsFunc(t *testing.T) {
 
 		return vars
 	}
-	
+
 	valid_vars := valid_func()
 
-	if !ImplementsFaultHandlerVars(valid_vars){
+	if !ImplementsFaultHandlerVars(valid_vars) {
 		t.Fatalf("%T does not implement fault handler vars", valid_vars)
 	}
 
 	invalid_vars := invalid_func()
 
-	if ImplementsFaultHandlerVars(invalid_vars){
+	if ImplementsFaultHandlerVars(invalid_vars) {
 		t.Fatalf("%T implements fault handler vars, which is not expected", invalid_vars)
 	}
 }
 
 func TestFaultHandler(t *testing.T) {
-	t.Skip()
+
+	tpl := template.New("test")
+	tpl, err := tpl.Parse(`{{ .Custom }} {{ .Status }}`)
+
+	if err != nil {
+		t.Fatalf("Failed to parse template, %v", err)
+	}
+	
+	type CustomVars struct {
+		Custom string
+		FaultHandlerVars
+	}
+
+	custom_func := func() interface{} {
+
+		vars := CustomVars{
+			Custom: "custom",
+		}
+
+		return vars
+	}
+	
+	opts := &FaultHandlerOptions{
+		Logger: log.Default(),
+		Template: tpl,
+		VarsFunc: custom_func,
+	}
+
+	fh := FaultHandlerWithOptions(opts)
+
+	fn := func(rsp http.ResponseWriter, req *http.Request) {
+
+		err := fmt.Errorf("This is a test")
+		AssignError(req, err, 999)
+		fh.ServeHTTP(rsp, req)
+		return 
+	}
+
+	h := http.HandlerFunc(fn)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", h)
+
+	go func() {
+
+		http.ListenAndServe(":8080", mux)
+	}()
+
+	rsp, err := http.Get("http://localhost:8080")
+
+	if err != nil {
+		t.Fatalf("Failed to get from localhost, %v", err)
+	}
+
+	defer rsp.Body.Close()
+
+	body, err := io.ReadAll(rsp.Body)
+
+	if err != nil{
+		t.Fatalf("Failed to read response, %v", err)
+	}
+
+	fmt.Println(string(body))
+		
 }
