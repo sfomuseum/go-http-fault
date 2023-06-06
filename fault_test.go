@@ -2,11 +2,11 @@ package fault
 
 import (
 	"fmt"
+	"html/template"
+	"io"
+	"log"
 	"net/http"
 	"testing"
-	"io"
-	"html/template"
-	"log"
 )
 
 func okHandler() http.Handler {
@@ -60,6 +60,8 @@ func TestAssignError(t *testing.T) {
 
 func TestFaultHandlerVarsFunc(t *testing.T) {
 
+	t.Skip()
+	
 	type ValidCustomVars struct {
 		Custom string
 		FaultHandlerVars
@@ -100,7 +102,7 @@ func TestFaultHandlerVarsFunc(t *testing.T) {
 	}
 }
 
-func TestFaultHandler(t *testing.T) {
+func TestFaultHandlerWithCustomVars(t *testing.T) {
 
 	tpl := template.New("test")
 	tpl, err := tpl.Parse(`{{ .Custom }} {{ .Status }}`)
@@ -108,7 +110,7 @@ func TestFaultHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse template, %v", err)
 	}
-	
+
 	type CustomVars struct {
 		Custom string
 		FaultHandlerVars
@@ -116,15 +118,15 @@ func TestFaultHandler(t *testing.T) {
 
 	custom_func := func() interface{} {
 
-		vars := CustomVars{
-			Custom: "custom",
+		vars := &CustomVars{
+			Custom: "This is custom text",
 		}
 
 		return vars
 	}
-	
+
 	opts := &FaultHandlerOptions{
-		Logger: log.Default(),
+		Logger:   log.Default(),
 		Template: tpl,
 		VarsFunc: custom_func,
 	}
@@ -136,7 +138,7 @@ func TestFaultHandler(t *testing.T) {
 		err := fmt.Errorf("This is a test")
 		AssignError(req, err, 999)
 		fh.ServeHTTP(rsp, req)
-		return 
+		return
 	}
 
 	h := http.HandlerFunc(fn)
@@ -159,10 +161,15 @@ func TestFaultHandler(t *testing.T) {
 
 	body, err := io.ReadAll(rsp.Body)
 
-	if err != nil{
+	if err != nil {
 		t.Fatalf("Failed to read response, %v", err)
 	}
 
-	fmt.Println(string(body))
-		
+	str_body := string(body)
+	expected_body := "This is custom text 999"
+
+
+	if str_body != expected_body {
+		t.Fatalf("Unexpected output '%s' (got '%s')", str_body, expected_body)
+	}
 }

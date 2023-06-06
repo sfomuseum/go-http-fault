@@ -149,16 +149,43 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 
 			vars := opts.VarsFunc()
 
-			if !ImplementsFaultHandlerVars(vars) {
-				return
+			if reflect.TypeOf(vars).Kind() != reflect.Ptr {
+				opts.Logger.Printf("[FAULT] template vars must be a pointer")
+				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+				return 
 			}
+			
+			dv := reflect.ValueOf(vars).Elem()
 
-			f := vars.(FaultHandlerVars)
-			f.Status = status
-			f.Error = public_err
+			if dv.Kind() != reflect.Struct {
+				opts.Logger.Printf("[FAULT] template vars must be a pointer to a struct/interface")
+				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+				return 
+				
+			}
+			
+			s := dv.FieldByName("Status")
 
-			vars = f
+			if !s.CanSet() {
+				opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Status")
+				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+				return 				
+			}
+			
+			status_v := reflect.ValueOf(status)
+			s.Set(status_v)
 
+			e := dv.FieldByName("Error")
+
+			if !e.CanSet() {
+				opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Error")
+				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+				return 				
+			}
+			
+			error_v := reflect.ValueOf(public_err)
+			e.Set(error_v)
+			
 			err = opts.Template.Execute(rsp, vars)
 
 			if err == nil {
@@ -170,8 +197,8 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 		}
 
 		err_msg := fmt.Sprintf("There was a problem completing your request (%d)", status)
-
 		http.Error(rsp, err_msg, status)
+		
 		return
 	}
 
