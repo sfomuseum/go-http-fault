@@ -16,20 +16,35 @@ const ErrorKey string = "github.com/sfomuseum/go-http-fault#error"
 // StatusKey is the name of the key for assigning status code values to a `context.Context` instance.
 const StatusKey string = "github.com/sfomuseum/go-http-fault#status"
 
+// FaultHandlerOptions is a struct containing configuration options for the `FaultHandlerWithOptions` method.
 type FaultHandlerOptions struct {
-	Logger   *log.Logger
+	// Logger is a custom `log.Logger` instance used for logging and feedback.
+	Logger *log.Logger
+	// Template is an optional `html/template.Template` to use for reporting errors.
 	Template *template.Template
+	// VarFunc is a `FaultHandlerVarsFunc` used to derive variables passed to templates. Required if `Template` is non-nil.
 	VarsFunc FaultHandlerVarsFunc
 }
 
+// FaultHandlerVars are the minimal required variables that will be pass to a fault handler template. If you need to pass additional fields
+// then you will need to create your handler using the the `FaultHandlerWithOptions` method specifying a custom `FaultHandlerVarsFunc` property.
 type FaultHandlerVars struct {
 	Status int
 	Error  error
 }
 
+// FaultHandlerVarsFunc is a custom function that returns a pointer to a struct that conforms to the required fields of the `FaultHandlerVars` struct type.
 type FaultHandlerVarsFunc func() interface{}
 
+// ImplementsFaultHandlerVars returns a boolean value indicating whether 'vars' conforms to the required fields of the `FaultHandlerVars` struct type.
 func ImplementsFaultHandlerVars(vars interface{}) bool {
+
+	switch vars.(type) {
+	case FaultHandlerVars, *FaultHandlerVars:
+		return true
+	default:
+		// carry on
+	}
 
 	if reflect.TypeOf(vars).Kind() != reflect.Ptr {
 		return false
@@ -155,42 +170,60 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 
 			vars := opts.VarsFunc()
 
-			if reflect.TypeOf(vars).Kind() != reflect.Ptr {
-				opts.Logger.Printf("[FAULT] template vars must be a pointer")
-				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return
+			switch vars.(type) {
+			case FaultHandlerVars:
+
+				f := vars.(FaultHandlerVars)
+				f.Status = status
+				f.Error = public_err
+				vars = f
+
+			case *FaultHandlerVars:
+
+				f := vars.(*FaultHandlerVars)
+				f.Status = status
+				f.Error = public_err
+				vars = f
+
+			default:
+
+				if reflect.TypeOf(vars).Kind() != reflect.Ptr {
+					opts.Logger.Printf("[FAULT] template vars must be a pointer")
+					http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+					return
+				}
+
+				dv := reflect.ValueOf(vars).Elem()
+
+				if dv.Kind() != reflect.Struct {
+					opts.Logger.Printf("[FAULT] template vars must be a pointer to a struct/interface")
+					http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+					return
+
+				}
+
+				s := dv.FieldByName("Status")
+
+				if !s.CanSet() {
+					opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Status")
+					http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+					return
+				}
+
+				status_v := reflect.ValueOf(status)
+				s.Set(status_v)
+
+				e := dv.FieldByName("Error")
+
+				if !e.CanSet() {
+					opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Error")
+					http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
+					return
+				}
+
+				error_v := reflect.ValueOf(public_err)
+				e.Set(error_v)
 			}
-
-			dv := reflect.ValueOf(vars).Elem()
-
-			if dv.Kind() != reflect.Struct {
-				opts.Logger.Printf("[FAULT] template vars must be a pointer to a struct/interface")
-				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return
-
-			}
-
-			s := dv.FieldByName("Status")
-
-			if !s.CanSet() {
-				opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Status")
-				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return
-			}
-
-			status_v := reflect.ValueOf(status)
-			s.Set(status_v)
-
-			e := dv.FieldByName("Error")
-
-			if !e.CanSet() {
-				opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Error")
-				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return
-			}
-
-			error_v := reflect.ValueOf(public_err)
-			e.Set(error_v)
 
 			err = opts.Template.Execute(rsp, vars)
 
