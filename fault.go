@@ -31,17 +31,25 @@ type FaultHandlerVarsFunc func() interface{}
 
 func ImplementsFaultHandlerVars(vars interface{}) bool {
 
-	val := reflect.ValueOf(vars)
-
-	s := val.FieldByName("Status")
-
-	if s.Kind() == reflect.Invalid {
+	if reflect.TypeOf(vars).Kind() != reflect.Ptr {
 		return false
 	}
 
-	e := val.FieldByName("Error")
+	dv := reflect.ValueOf(vars).Elem()
 
-	if e.Kind() == reflect.Invalid {
+	if dv.Kind() != reflect.Struct {
+		return false
+	}
+
+	s := dv.FieldByName("Status")
+
+	if !s.CanSet() {
+		return false
+	}
+
+	e := dv.FieldByName("Error")
+
+	if !e.CanSet() {
 		return false
 	}
 
@@ -152,26 +160,26 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 			if reflect.TypeOf(vars).Kind() != reflect.Ptr {
 				opts.Logger.Printf("[FAULT] template vars must be a pointer")
 				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return 
+				return
 			}
-			
+
 			dv := reflect.ValueOf(vars).Elem()
 
 			if dv.Kind() != reflect.Struct {
 				opts.Logger.Printf("[FAULT] template vars must be a pointer to a struct/interface")
 				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return 
-				
+				return
+
 			}
-			
+
 			s := dv.FieldByName("Status")
 
 			if !s.CanSet() {
 				opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Status")
 				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return 				
+				return
 			}
-			
+
 			status_v := reflect.ValueOf(status)
 			s.Set(status_v)
 
@@ -180,12 +188,12 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 			if !e.CanSet() {
 				opts.Logger.Printf("[FAULT] template vars have no field '%s' or cannot be set", "Error")
 				http.Error(rsp, "Invalid template vars", http.StatusInternalServerError)
-				return 				
+				return
 			}
-			
+
 			error_v := reflect.ValueOf(public_err)
 			e.Set(error_v)
-			
+
 			err = opts.Template.Execute(rsp, vars)
 
 			if err == nil {
@@ -198,7 +206,7 @@ func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 
 		err_msg := fmt.Sprintf("There was a problem completing your request (%d)", status)
 		http.Error(rsp, err_msg, status)
-		
+
 		return
 	}
 

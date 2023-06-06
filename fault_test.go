@@ -60,8 +60,6 @@ func TestAssignError(t *testing.T) {
 
 func TestFaultHandlerVarsFunc(t *testing.T) {
 
-	t.Skip()
-	
 	type ValidCustomVars struct {
 		Custom string
 		FaultHandlerVars
@@ -71,18 +69,18 @@ func TestFaultHandlerVarsFunc(t *testing.T) {
 		Custom string
 	}
 
-	valid_func := func() ValidCustomVars {
+	valid_func := func() interface{} {
 
-		vars := ValidCustomVars{
+		vars := &ValidCustomVars{
 			Custom: "custom",
 		}
 
 		return vars
 	}
 
-	invalid_func := func() InvalidCustomVars {
+	invalid_func := func() interface{} {
 
-		vars := InvalidCustomVars{
+		vars := &InvalidCustomVars{
 			Custom: "custom",
 		}
 
@@ -167,7 +165,6 @@ func TestFaultHandlerWithCustomVars(t *testing.T) {
 
 	str_body := string(body)
 	expected_body := "This is custom text 999"
-
 
 	if str_body != expected_body {
 		t.Fatalf("Unexpected output '%s' (got '%s')", str_body, expected_body)
