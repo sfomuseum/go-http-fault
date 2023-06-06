@@ -100,7 +100,7 @@ func faultHandler(l *log.Logger, t *template.Template) http.Handler {
 				Status: status,
 				Error:  public_err,
 			}
-
+			
 			err = t.Execute(rsp, vars)
 
 			if err == nil {
