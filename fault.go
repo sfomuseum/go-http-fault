@@ -15,9 +15,24 @@ const ErrorKey string = "github.com/sfomuseum/go-http-fault#error"
 // StatusKey is the name of the key for assigning status code values to a `context.Context` instance.
 const StatusKey string = "github.com/sfomuseum/go-http-fault#status"
 
+type FaultHandlerOptions struct {
+	Logger   *log.Logger
+	Template *template.Template
+	VarsFunc FaultHandlerVarsFunc
+}
+
 type FaultHandlerVars struct {
 	Status int
 	Error  error
+}
+
+type FaultHandlerVarsFunc func() *FaultHandlerVars
+
+func defaultFaultHandlerVars() *FaultHandlerVars {
+	return &FaultHandlerVars{
+		Status: 0,
+		Error:  fmt.Errorf("Undefined error"),
+	}
 }
 
 // AssignError assigns 'err' and 'status' the `ErrorKey` and `StatusKey` values of 'req.Context'
@@ -60,19 +75,33 @@ func RetrieveError(req *http.Request) (int, error) {
 
 // FaultHandler returns a `http.Handler` instance for handling errors in a web application.
 func FaultHandler(l *log.Logger) http.Handler {
-	return faultHandler(l, nil)
+
+	opts := &FaultHandlerOptions{
+		Logger:   l,
+		Template: nil,
+		VarsFunc: nil, // unnecessary because no template
+	}
+
+	return FaultHandlerWithOptions(opts)
 }
 
 // TemplatedFaultHandler returns a `http.Handler` instance for handling errors in a web application
 // with a custom HTML template.
 func TemplatedFaultHandler(l *log.Logger, t *template.Template) http.Handler {
-	return faultHandler(l, t)
+
+	opts := &FaultHandlerOptions{
+		Logger:   l,
+		Template: t,
+		VarsFunc: defaultFaultHandlerVars,
+	}
+
+	return FaultHandlerWithOptions(opts)
 }
 
 // faultHandler returns a `http.Handler` for handling errors in a web application. It will retrieve
 // and "public" and "private" errors that have been recorded and log them to 'l'. If 't is defined it
 // will executed and passed the "public" error as a template variable.
-func faultHandler(l *log.Logger, t *template.Template) http.Handler {
+func FaultHandlerWithOptions(opts *FaultHandlerOptions) http.Handler {
 
 	fn := func(rsp http.ResponseWriter, req *http.Request) {
 
@@ -90,25 +119,24 @@ func faultHandler(l *log.Logger, t *template.Template) http.Handler {
 
 		addr := req.RemoteAddr
 
-		l.Printf("[FAULT] %s \"%s %s %s\" %v\n", addr, req.Method, req.RequestURI, req.Proto, private_err)
+		opts.Logger.Printf("[FAULT] %s \"%s %s %s\" %v\n", addr, req.Method, req.RequestURI, req.Proto, private_err)
 
-		if t != nil {
+		if opts.Template != nil {
 
 			rsp.Header().Set("Content-Type", "text/html")
 
-			vars := FaultHandlerVars{
-				Status: status,
-				Error:  public_err,
-			}
-			
-			err = t.Execute(rsp, vars)
+			vars := opts.VarsFunc()
+			vars.Status = status
+			vars.Error = public_err
+
+			err = opts.Template.Execute(rsp, vars)
 
 			if err == nil {
 				return
 			}
 
 			msg := fmt.Sprintf("Failed to render template for fault handler, %v", err)
-			l.Printf("[FAULT] %s \"%s %s %s\" %s\n", addr, req.Method, req.RequestURI, req.Proto, msg)
+			opts.Logger.Printf("[FAULT] %s \"%s %s %s\" %s\n", addr, req.Method, req.RequestURI, req.Proto, msg)
 		}
 
 		err_msg := fmt.Sprintf("There was a problem completing your request (%d)", status)
