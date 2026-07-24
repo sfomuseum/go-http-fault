@@ -2,6 +2,10 @@
 
 Go package providing a `net/http` handler for logging errors and rendering them to the browser using custom templates.
 
+## Deprecation Notice
+
+This package has been deprecated. Its functionality has been moved in to [aaronland/go-http/v4](https://github.com/aaronland/go-http)
+.
 ## Documentation
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/sfomuseum/go-http-fault.svg)](https://pkg.go.dev/github.com/sfomuseum/go-http-fault)
